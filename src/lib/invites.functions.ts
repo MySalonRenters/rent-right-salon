@@ -62,13 +62,19 @@ export const acceptInvite = createServerFn({ method: "POST" })
       .eq("token", data.token)
       .maybeSingle();
 
+      console.log("Invite data:", invite);
+
     if (!invite) throw new Error("This invite link is not valid.");
     if (invite.status !== "pending") throw new Error("This invite is no longer available.");
     if (new Date(invite.expires_at) < new Date()) throw new Error("This invite has expired.");
 
     // The invite is only valid for the email address it was sent to.
+    const userCheck = await supabaseAdmin.auth.admin.getUserById(userId);
+console.log("User check:", userCheck);
     const { data: userResult } = await supabaseAdmin.auth.admin.getUserById(userId);
     const callerEmail = userResult?.user?.email?.trim().toLowerCase() ?? "";
+    console.log("Caller email:", userId, userResult);
+    console.log("Invite email:", invite.email?.trim().toLowerCase());
     if (!callerEmail || callerEmail !== invite.email.trim().toLowerCase()) {
       throw new Error("This invite was sent to a different email address.");
     }

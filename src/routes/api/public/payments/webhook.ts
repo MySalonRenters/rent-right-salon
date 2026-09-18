@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
-import { verifyWebhook, type StripeEnv } from "@/lib/stripe.server";
+import { verifyWebhook } from "@/lib/stripe.server";
 import { TRIAL_DAYS } from "@/lib/payments";
 
 let _supabase: ReturnType<typeof createClient> | null = null;
@@ -33,7 +33,7 @@ async function notify(userId: string, title: string, body: string) {
   });
 }
 
-async function handleSubscriptionCreated(subscription: any, env: StripeEnv) {
+async function handleSubscriptionCreated(subscription: any) {
   const userId = subscription.metadata?.userId;
   if (!userId) {
     console.error("No userId in subscription metadata");
@@ -72,7 +72,6 @@ async function handleSubscriptionCreated(subscription: any, env: StripeEnv) {
       status: subscription.status,
       current_period_start: periodStart ? new Date(periodStart * 1000).toISOString() : null,
       current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
-      environment: env,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "stripe_subscription_id" },
@@ -87,7 +86,7 @@ async function handleSubscriptionCreated(subscription: any, env: StripeEnv) {
   );
 }
 
-async function handleSubscriptionUpdated(subscription: any, env: StripeEnv) {
+async function handleSubscriptionUpdated(subscription: any) {
   const item = subscription.items?.data?.[0];
   const priceId =
     item?.price?.lookup_key || item?.price?.metadata?.lovable_external_id || item?.price?.id;
@@ -111,7 +110,6 @@ async function handleSubscriptionUpdated(subscription: any, env: StripeEnv) {
       updated_at: new Date().toISOString(),
     })
     .eq("stripe_subscription_id", subscription.id)
-    .eq("environment", env)
     .select("user_id");
 
   const userId = (rows?.[0] as { user_id?: string } | undefined)?.user_id;
@@ -132,12 +130,11 @@ async function handleSubscriptionUpdated(subscription: any, env: StripeEnv) {
   }
 }
 
-async function handleSubscriptionDeleted(subscription: any, env: StripeEnv) {
+async function handleSubscriptionDeleted(subscription: any) {
   const { data: rows } = await getSupabase()
     .from("subscriptions")
     .update({ status: "canceled", updated_at: new Date().toISOString() })
     .eq("stripe_subscription_id", subscription.id)
-    .eq("environment", env)
     .select("user_id");
 
   const userId = (rows?.[0] as { user_id?: string } | undefined)?.user_id;
@@ -230,18 +227,18 @@ async function handleRentCheckout(session: any) {
   }
 }
 
-async function handleWebhook(req: Request, env: StripeEnv) {
-  const event = await verifyWebhook(req, env);
+async function handleWebhook(req: Request) {
+  const event = await verifyWebhook(req);
 
   switch (event.type) {
     case "customer.subscription.created":
-      await handleSubscriptionCreated(event.data.object, env);
+      await handleSubscriptionCreated(event.data.object);
       break;
     case "customer.subscription.updated":
-      await handleSubscriptionUpdated(event.data.object, env);
+      await handleSubscriptionUpdated(event.data.object);
       break;
     case "customer.subscription.deleted":
-      await handleSubscriptionDeleted(event.data.object, env);
+      await handleSubscriptionDeleted(event.data.object);
       break;
     case "checkout.session.completed":
     case "checkout.session.async_payment_succeeded":
@@ -256,15 +253,8 @@ export const Route = createFileRoute("/api/public/payments/webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const url = new URL(request.url);
-        const rawEnv = url.searchParams.get("env");
-        if (rawEnv !== "sandbox" && rawEnv !== "live") {
-          console.error("Webhook received with invalid or missing env query parameter:", rawEnv);
-          return Response.json({ received: true, ignored: "invalid env" });
-        }
-        const env: StripeEnv = rawEnv;
         try {
-          await handleWebhook(request, env);
+          await handleWebhook(request);
           return Response.json({ received: true });
         } catch (e) {
           console.error("Webhook error:", e);

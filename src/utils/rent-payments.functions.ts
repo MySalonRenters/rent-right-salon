@@ -2,11 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import type Stripe from "stripe";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import {
-  type StripeEnv,
-  createStripeClient,
-  getStripeErrorMessage,
-} from "@/lib/stripe.server";
+import { createStripeClient, getStripeErrorMessage } from "@/lib/stripe.server";
 
 type PayoutAccountStatus = {
   connected: boolean;
@@ -19,17 +15,10 @@ type PayoutAccountStatus = {
 type StatusResult = PayoutAccountStatus | { error: string };
 type LinkResult = { url: string } | { error: string };
 
-const envValidator = (data: { environment: StripeEnv }) => {
-  if (data.environment !== "sandbox" && data.environment !== "live") {
-    throw new Error("Invalid environment");
-  }
-  return data;
-};
-
 async function loadOwnedSalon(supabase: any, userId: string) {
   const { data, error } = await supabase
     .from("salons")
-    .select("id, name, currency, stripe_account_id, stripe_account_env")
+    .select("id, name, currency, stripe_account_id")
     .eq("owner_id", userId)
     .limit(1)
     .maybeSingle();
@@ -40,19 +29,16 @@ async function loadOwnedSalon(supabase: any, userId: string) {
     name: string;
     currency: string;
     stripe_account_id: string | null;
-    stripe_account_env: string | null;
   };
 }
 
 /** Owner: current state of the salon's connected payout account. */
 export const getPayoutAccountStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(envValidator)
-  .handler(async ({ data, context }): Promise<StatusResult> => {
+  .handler(async ({ context }): Promise<StatusResult> => {
     try {
       const salon = await loadOwnedSalon(context.supabase, context.userId);
-      const accountId =
-        salon.stripe_account_env === data.environment ? salon.stripe_account_id : null;
+      const accountId = salon.stripe_account_id;
 
       if (!accountId) {
         return {
@@ -64,7 +50,7 @@ export const getPayoutAccountStatus = createServerFn({ method: "POST" })
         };
       }
 
-      const stripe = createStripeClient(data.environment);
+      const stripe = createStripeClient();
 
       let chargesEnabled = false;
       let payoutsEnabled = false;
@@ -118,18 +104,16 @@ export const getPayoutAccountStatus = createServerFn({ method: "POST" })
 /** Owner: create (if needed) the connected account and return an onboarding link. */
 export const startPayoutOnboarding = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { environment: StripeEnv; returnUrl: string }) => {
-    envValidator(data);
+  .inputValidator((data: { returnUrl: string }) => {
     if (!/^https?:\/\//.test(data.returnUrl)) throw new Error("Invalid return URL");
     return data;
   })
   .handler(async ({ data, context }): Promise<LinkResult> => {
     try {
       const salon = await loadOwnedSalon(context.supabase, context.userId);
-      const stripe = createStripeClient(data.environment);
+      const stripe = createStripeClient();
 
-      let accountId =
-        salon.stripe_account_env === data.environment ? salon.stripe_account_id : null;
+      let accountId = salon.stripe_account_id;
       let isV2Account = false;
 
       if (!accountId) {
@@ -165,7 +149,7 @@ export const startPayoutOnboarding = createServerFn({ method: "POST" })
 
         const { error } = await context.supabase
           .from("salons")
-          .update({ stripe_account_id: accountId, stripe_account_env: data.environment })
+          .update({ stripe_account_id: accountId })
           .eq("id", salon.id);
         if (error) throw new Error(error.message);
       }
@@ -211,15 +195,13 @@ export const startPayoutOnboarding = createServerFn({ method: "POST" })
 /** Owner: link into the Stripe-hosted dashboard for the connected account. */
 export const openPayoutDashboard = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(envValidator)
-  .handler(async ({ data, context }): Promise<LinkResult> => {
+  .handler(async ({ context }): Promise<LinkResult> => {
     try {
       const salon = await loadOwnedSalon(context.supabase, context.userId);
-      const accountId =
-        salon.stripe_account_env === data.environment ? salon.stripe_account_id : null;
+      const accountId = salon.stripe_account_id;
       if (!accountId) throw new Error("No payout account connected yet");
 
-      const stripe = createStripeClient(data.environment);
+      const stripe = createStripeClient();
       const login = await stripe.accounts.createLoginLink(accountId);
       return { url: login.url };
     } catch (error) {
@@ -230,8 +212,7 @@ export const openPayoutDashboard = createServerFn({ method: "POST" })
 /** Renter: bank-to-bank checkout for one rent charge, paid into the salon's account. */
 export const createRentBankPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { chargeId: string; environment: StripeEnv; returnUrl: string }) => {
-    envValidator(data);
+  .inputValidator((data: { chargeId: string; returnUrl: string }) => {
     if (
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.chargeId)
     ) {
@@ -258,15 +239,11 @@ export const createRentBankPayment = createServerFn({ method: "POST" })
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const { data: salon } = await supabaseAdmin
         .from("salons")
-        .select("id, name, stripe_account_id, stripe_account_env, stripe_charges_enabled")
+        .select("id, name, stripe_account_id, stripe_charges_enabled")
         .eq("id", charge.salon_id)
         .maybeSingle();
 
-      if (
-        !salon?.stripe_account_id ||
-        salon.stripe_account_env !== data.environment ||
-        !salon.stripe_charges_enabled
-      ) {
+      if (!salon?.stripe_account_id || !salon.stripe_charges_enabled) {
         throw new Error("This salon has not finished setting up bank payments yet");
       }
 
@@ -282,7 +259,7 @@ export const createRentBankPayment = createServerFn({ method: "POST" })
       const remaining = Math.round((Number(charge.amount) - alreadyPaid) * 100);
       if (remaining <= 0) throw new Error("This rent charge is already settled");
 
-      const stripe = createStripeClient(data.environment);
+      const stripe = createStripeClient();
       const currency = (charge.currency || "GBP").toLowerCase();
 
       const session = await stripe.checkout.sessions.create({

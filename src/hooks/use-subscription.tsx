@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
-import { getPaymentsEnvironment } from "@/lib/payments";
 import { useMembership } from "@/hooks/use-session";
 
 export type SubscriptionState = {
@@ -50,7 +49,6 @@ export function useSubscription() {
           "status, current_period_start, current_period_end, cancel_at_period_end, product_id, price_id, created_at",
         )
         .eq("user_id", userId!)
-        .eq("environment", getPaymentsEnvironment())
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();

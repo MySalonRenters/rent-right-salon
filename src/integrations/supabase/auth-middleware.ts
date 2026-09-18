@@ -34,14 +34,14 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
   async ({ next }) => {
     
     const SUPABASE_URL = process.env['SUPABASE_URL'];
-    const SUPABASE_PUBLISHABLE_KEY = process.env['SUPABASE_PUBLISHABLE_KEY'];
+    const SUPABASE_PUBLISHABLE_KEY = process.env['VITE_SUPABASE_PUBLISHABLE_KEY'];
 
     if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
       const missing = [
         ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
         ...(!SUPABASE_PUBLISHABLE_KEY ? ['SUPABASE_PUBLISHABLE_KEY'] : []),
       ];
-      const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Connect Supabase in Lovable Cloud.`;
+      const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Set them in your server environment.`;
       console.error(`[Supabase] ${message}`);
       throw new Error(message);
     }
@@ -68,7 +68,7 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
     }
 
     if (token.split('.').length !== 3) {
-      throw new Error('Unauthorized: Invalid token');
+      throw new Error('Unauthorized: Invalid token. auth-mw');
     }
 
     const supabase = createClient<Database>(
@@ -91,7 +91,7 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
 
     const { data, error } = await supabase.auth.getClaims(token);
     if (error || !data?.claims) {
-      throw new Error('Unauthorized: Invalid token');
+      throw new Error('Unauthorized: Failed to get claims from token. auth-mw');
     }
 
     if (!data.claims.sub) {

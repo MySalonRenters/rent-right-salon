@@ -15,7 +15,7 @@ export const Route = createFileRoute("/api/public/hooks/rent-reminders")({
     handlers: {
       POST: async ({ request }) => {
         const accepted = [
-          process.env["SUPABASE_PUBLISHABLE_KEY"],
+          process.env["VITE_SUPABASE_PUBLISHABLE_KEY"],
           process.env["SUPABASE_ANON_KEY"],
         ].filter((k): k is string => !!k);
         const provided =

@@ -642,7 +642,6 @@ export type Database = {
           name: string
           owner_id: string
           phone: string | null
-          stripe_account_env: string | null
           stripe_account_id: string | null
           stripe_charges_enabled: boolean
           stripe_details_submitted: boolean
@@ -662,7 +661,6 @@ export type Database = {
           name: string
           owner_id: string
           phone?: string | null
-          stripe_account_env?: string | null
           stripe_account_id?: string | null
           stripe_charges_enabled?: boolean
           stripe_details_submitted?: boolean
@@ -682,7 +680,6 @@ export type Database = {
           name?: string
           owner_id?: string
           phone?: string | null
-          stripe_account_env?: string | null
           stripe_account_id?: string | null
           stripe_charges_enabled?: boolean
           stripe_details_submitted?: boolean
@@ -697,7 +694,6 @@ export type Database = {
           created_at: string
           current_period_end: string | null
           current_period_start: string | null
-          environment: string
           id: string
           paddle_customer_id: string | null
           paddle_subscription_id: string | null
@@ -714,7 +710,6 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
-          environment?: string
           id?: string
           paddle_customer_id?: string | null
           paddle_subscription_id?: string | null
@@ -731,7 +726,6 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
-          environment?: string
           id?: string
           paddle_customer_id?: string | null
           paddle_subscription_id?: string | null

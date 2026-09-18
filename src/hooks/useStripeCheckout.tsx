@@ -1,7 +1,6 @@
 import { useState, useCallback } from "react";
 
 import { StripeEmbeddedCheckout } from "@/components/StripeEmbeddedCheckout";
-import { getStripeEnvironment } from "@/lib/stripe";
 
 interface CheckoutOptions {
   priceId: string;
@@ -33,5 +32,5 @@ export function useStripeCheckout() {
       />
     ) : null;
 
-  return { openCheckout, closeCheckout, isOpen, checkoutElement, environment: getStripeEnvironment() };
+  return { openCheckout, closeCheckout, isOpen, checkoutElement };
 }

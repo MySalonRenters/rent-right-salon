@@ -487,7 +487,6 @@ CREATE TABLE public.subscriptions (
   current_period_start timestamptz,
   current_period_end timestamptz,
   cancel_at_period_end boolean NOT NULL DEFAULT false,
-  environment text NOT NULL DEFAULT 'sandbox',
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -507,86 +506,6 @@ CREATE POLICY "subscriptions_select_own" ON public.subscriptions
 CREATE TRIGGER trg_subscriptions_updated
   BEFORE UPDATE ON public.subscriptions
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
-CREATE OR REPLACE FUNCTION public.has_active_subscription(user_uuid uuid, check_env text DEFAULT 'live')
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.subscriptions
-    WHERE user_id = user_uuid
-      AND environment = check_env
-      AND (
-        (status IN ('active','trialing','past_due') AND (current_period_end IS NULL OR current_period_end > now()))
-        OR (status = 'canceled' AND current_period_end > now())
-      )
-  );
-$$;
-
-REVOKE ALL ON FUNCTION public.has_active_subscription(uuid, text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.has_active_subscription(uuid, text) TO authenticated, service_role;
-
-CREATE OR REPLACE FUNCTION public.salon_owner_subscribed(_salon_id uuid, check_env text DEFAULT 'live')
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.salons s
-    WHERE s.id = _salon_id
-      AND public.has_active_subscription(s.owner_id, check_env)
-  );
-$$;
-
-REVOKE ALL ON FUNCTION public.salon_owner_subscribed(uuid, text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.salon_owner_subscribed(uuid, text) TO authenticated, service_role;
-
--- ===== 20260824120706_f60d421d-27ba-45ab-82cb-7ff3093870c6.sql =====
-
-DROP FUNCTION IF EXISTS public.salon_owner_subscribed(uuid, text);
-DROP FUNCTION IF EXISTS public.has_active_subscription(uuid, text);
-
-CREATE OR REPLACE FUNCTION private.has_active_subscription(user_uuid uuid, check_env text DEFAULT 'live')
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.subscriptions
-    WHERE user_id = user_uuid
-      AND environment = check_env
-      AND (
-        (status IN ('active','trialing','past_due') AND (current_period_end IS NULL OR current_period_end > now()))
-        OR (status = 'canceled' AND current_period_end > now())
-      )
-  );
-$$;
-
-CREATE OR REPLACE FUNCTION private.salon_owner_subscribed(_salon_id uuid, check_env text DEFAULT 'live')
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.salons s
-    WHERE s.id = _salon_id
-      AND private.has_active_subscription(s.owner_id, check_env)
-  );
-$$;
-
-REVOKE ALL ON FUNCTION private.has_active_subscription(uuid, text) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION private.salon_owner_subscribed(uuid, text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION private.has_active_subscription(uuid, text) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION private.salon_owner_subscribed(uuid, text) TO authenticated, service_role;
 
 -- ===== 20260829173955_fc622338-37b2-410f-9ea9-3cfa3e760697.sql =====
 
@@ -802,7 +721,7 @@ CREATE TRIGGER payments_receipt_number
 DROP POLICY IF EXISTS agreements_owner_update_unsigned ON public.agreements;
 DROP POLICY IF EXISTS agreements_owner_delete_unsigned ON public.agreements;
 
--- 2) Subscription gate helper (any environment counts, so preview/live both work)
+-- 2) Subscription gate helper
 CREATE OR REPLACE FUNCTION private.salon_owner_can_manage(_salon_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -939,7 +858,6 @@ USING (private.owns_salon(salon_id) AND private.salon_owner_can_manage(salon_id)
 
 ALTER TABLE public.salons
   ADD COLUMN IF NOT EXISTS stripe_account_id text,
-  ADD COLUMN IF NOT EXISTS stripe_account_env text,
   ADD COLUMN IF NOT EXISTS stripe_charges_enabled boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS stripe_payouts_enabled boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS stripe_details_submitted boolean NOT NULL DEFAULT false;

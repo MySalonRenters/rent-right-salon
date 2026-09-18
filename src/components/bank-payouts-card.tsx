@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getStripeEnvironment } from "@/lib/stripe";
 import {
   getPayoutAccountStatus,
   openPayoutDashboard,
@@ -14,12 +13,11 @@ import {
 
 export function BankPayoutsCard({ salonId }: { salonId: string }) {
   const queryClient = useQueryClient();
-  const environment = getStripeEnvironment();
 
   const { data: status, isLoading } = useQuery({
-    queryKey: ["payout-account", salonId, environment],
+    queryKey: ["payout-account", salonId],
     queryFn: async () => {
-      const result = await getPayoutAccountStatus({ data: { environment } });
+      const result = await getPayoutAccountStatus();
       if ("error" in result) throw new Error(result.error);
       return result;
     },
@@ -28,7 +26,7 @@ export function BankPayoutsCard({ salonId }: { salonId: string }) {
   const onboard = useMutation({
     mutationFn: async () => {
       const result = await startPayoutOnboarding({
-        data: { environment, returnUrl: `${window.location.origin}/settings` },
+        data: { returnUrl: `${window.location.origin}/settings` },
       });
       if ("error" in result) throw new Error(result.error);
       return result.url;
@@ -49,7 +47,7 @@ export function BankPayoutsCard({ salonId }: { salonId: string }) {
 
   const dashboard = useMutation({
     mutationFn: async () => {
-      const result = await openPayoutDashboard({ data: { environment } });
+      const result = await openPayoutDashboard();
       if ("error" in result) throw new Error(result.error);
       return result.url;
     },

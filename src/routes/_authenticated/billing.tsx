@@ -31,7 +31,7 @@ import { Separator } from "@/components/ui/separator";
 import { useMembership } from "@/hooks/use-session";
 import { useSubscription, type SubscriptionState } from "@/hooks/use-subscription";
 import { useStripeCheckout } from "@/hooks/useStripeCheckout";
-import { getPaymentsEnvironment, PLAN_NAME, PLAN_PRICE_LABEL, TRIAL_DAYS } from "@/lib/payments";
+import { PLAN_NAME, PLAN_PRICE_LABEL, TRIAL_DAYS } from "@/lib/payments";
 import { createPortalSession } from "@/utils/payments.functions";
 import { daysUntil, formatDate } from "@/lib/format";
 
@@ -231,7 +231,7 @@ function BillingPage() {
     setPortalAction(action);
     setPortalError(null);
     try {
-      const result = await portalFn({ data: { environment: getPaymentsEnvironment() } });
+      const result = await portalFn({ data: {} });
       if ("error" in result) throw new Error(result.error);
       const url = result.url;
       if (!url) throw new Error("Our payment provider didn't return a link for that action.");

@@ -30,7 +30,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMembership } from "@/hooks/use-session";
 import { daysUntil, formatDate, formatMoney } from "@/lib/format";
 import { flagOverdueCharges, generateChargesForSalon } from "@/lib/rent";
-import { getStripeEnvironment } from "@/lib/stripe";
 import { createRentBankPayment } from "@/utils/rent-payments.functions";
 
 export const Route = createFileRoute("/_authenticated/rent")({
@@ -99,14 +98,13 @@ function RentPage() {
     },
   });
 
-  const bankPayEnabled = salon?.stripe_charges_enabled ?? false;
+  const bankPayEnabled = true; // TEMP: forced on to preview UI — revert this before committing
 
   const payFromBank = useMutation({
     mutationFn: async (charge: Charge) => {
       const result = await createRentBankPayment({
         data: {
           chargeId: charge.id,
-          environment: getStripeEnvironment(),
           returnUrl: `${window.location.origin}/rent`,
         },
       });

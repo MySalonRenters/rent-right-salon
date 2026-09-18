@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useMembership } from "@/hooks/use-session";
+import { LogOut } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
   component: Onboarding,
@@ -28,6 +29,13 @@ function Onboarding() {
   const [name, setName] = useState("");
   const [currency, setCurrency] = useState("GBP");
   const [busy, setBusy] = useState(false);
+
+  async function signOut() {
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    await supabase.auth.signOut();
+    navigate({ to: "/auth", replace: true });
+  }
 
   async function createSalon(event: React.FormEvent) {
     event.preventDefault();
@@ -59,6 +67,10 @@ function Onboarding() {
             Ask your salon owner to send you an invite link. Once you accept it, your chair, rent
             schedule and agreements will appear here.
           </p>
+          <Button variant="outline" className="mt-6 gap-2" onClick={signOut}>
+            <LogOut className="size-4" />
+            Sign out
+          </Button>
         </div>
       </div>
     );

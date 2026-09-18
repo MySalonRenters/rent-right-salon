@@ -1,16 +1,26 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import Stripe from "stripe";
-import {
-  type StripeEnv,
-  createStripeClient,
-  getStripeErrorMessage,
-} from "@/lib/stripe.server";
+import { createStripeClient, getStripeErrorMessage } from "@/lib/stripe.server";
 import { TRIAL_DAYS } from "@/lib/payments";
 
 type CheckoutSessionResult =
   | { clientSecret: string }
   | { error: string };
+
+async function findPriceByLookupKey(
+  stripe: ReturnType<typeof createStripeClient>,
+  lookupKey: string,
+): Promise<Stripe.Price> {
+  const delaysMs = [0, 250, 500];
+  for (const [index, delay] of delaysMs.entries()) {
+    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+    const prices = await stripe.prices.list({ lookup_keys: [lookupKey] });
+    if (prices.data.length) return prices.data[0]!;
+    if (index === delaysMs.length - 1) throw new Error("Price not found");
+  }
+  throw new Error("Price not found");
+}
 
 async function resolveOrCreateCustomer(
   stripe: ReturnType<typeof createStripeClient>,
@@ -51,18 +61,16 @@ async function resolveOrCreateCustomer(
 export const createCheckoutSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
-    (data: { priceId: string; returnUrl: string; environment: StripeEnv }) => {
+    (data: { priceId: string; returnUrl: string }) => {
       if (!/^[a-zA-Z0-9_-]+$/.test(data.priceId)) throw new Error("Invalid priceId");
       return data;
     },
   )
   .handler(async ({ data, context }): Promise<CheckoutSessionResult> => {
     try {
-      const stripe = createStripeClient(data.environment);
+      const stripe = createStripeClient();
 
-      const prices = await stripe.prices.list({ lookup_keys: [data.priceId] });
-      if (!prices.data.length) throw new Error("Price not found");
-      const stripePrice = prices.data[0]!;
+      const stripePrice = await findPriceByLookupKey(stripe, data.priceId);
       const isRecurring = stripePrice.type === "recurring";
 
       const {
@@ -100,14 +108,13 @@ type PortalSessionResult = { url: string } | { error: string };
 
 export const createPortalSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { returnUrl?: string; environment: StripeEnv }) => data)
+  .inputValidator((data: { returnUrl?: string }) => data)
   .handler(async ({ data, context }): Promise<PortalSessionResult> => {
     try {
       const { data: sub, error: subError } = await context.supabase
         .from("subscriptions")
         .select("stripe_customer_id")
         .eq("user_id", context.userId)
-        .eq("environment", data.environment)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -116,7 +123,7 @@ export const createPortalSession = createServerFn({ method: "POST" })
         throw new Error("No subscription found");
       }
 
-      const stripe = createStripeClient(data.environment);
+      const stripe = createStripeClient();
       const portal = await stripe.billingPortal.sessions.create({
         customer: sub.stripe_customer_id,
         ...(data.returnUrl && { return_url: data.returnUrl }),

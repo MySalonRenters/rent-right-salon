@@ -9,13 +9,17 @@ import {
   Users,
 } from "lucide-react";
 
-import dashboardOwnerShot from "@/assets/dashboard-owner-shot.png.asset.json";
-import dashboardRenterShot from "@/assets/dashboard-renter-shot.png.asset.json";
-import ownerPaymentsShot from "@/assets/owner-payments-shot.png.asset.json";
 import { Button } from "@/components/ui/button";
 import { MarketingHeader } from "@/components/marketing-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PLAN_PRICE_LABEL, TRIAL_DAYS } from "@/lib/payments";
+
+const dashboardOwnerShotUrl =
+  "dashboard-owner-shot.png";
+const dashboardRenterShotUrl =
+  "dashboard-renter-shot.png";
+const ownerPaymentsShotUrl =
+  "owner-payments-shot.png";
 
 
 
@@ -127,7 +131,7 @@ function Landing() {
           </div>
           <div className="relative">
             <img
-              src={dashboardOwnerShot.url}
+              src={dashboardOwnerShotUrl}
               alt="My Salon Renters dashboard showing chairs, renters and rent due"
               width={1280}
               height={900}
@@ -246,7 +250,7 @@ function Landing() {
           </div>
           <div>
             <img
-              src={ownerPaymentsShot.url}
+              src={ownerPaymentsShotUrl}
               alt="Salon owner rent and payments screen listing renters, payment methods, paid and overdue rent"
               width={1440}
               height={1108}
@@ -300,7 +304,7 @@ function Landing() {
         <div className="mt-6 grid gap-5 md:mt-8 md:gap-6 md:grid-cols-2">
           <div className="space-y-3">
             <img
-              src={dashboardOwnerShot.url}
+              src={dashboardOwnerShotUrl}
               alt="Salon owner dashboard showing chairs, renters, outstanding rent and rent due"
               width={1280}
               height={900}
@@ -311,7 +315,7 @@ function Landing() {
           </div>
           <div className="space-y-3">
             <img
-              src={dashboardRenterShot.url}
+              src={dashboardRenterShotUrl}
               alt="Chair renter dashboard showing assigned chair, outstanding balance and next payment"
               width={1280}
               height={900}

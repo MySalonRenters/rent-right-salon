@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { Logo } from "@/components/logo";
 
 const searchSchema = z.object({
@@ -125,17 +124,17 @@ function AuthPage() {
   async function handleGoogle() {
     setBusy(true);
     try {
-      if (next) sessionStorage.setItem("mysalonrenters:next", next);
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}${next ?? "/dashboard"}` },
       });
-      if (result.error) {
+      if (error) {
         toast.error("Google sign in didn't work. Please try again.");
-        return;
+        setBusy(false);
       }
-      if (result.redirected) return;
-      navigate({ to: next ?? "/dashboard", replace: true });
-    } finally {
+      // On success Supabase redirects the browser to Google, so nothing more to do here.
+    } catch {
+      toast.error("Google sign in didn't work. Please try again.");
       setBusy(false);
     }
   }
