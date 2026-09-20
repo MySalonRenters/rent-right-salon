@@ -14,7 +14,6 @@ import {
   CARD_FEE_FIXED,
   CARD_FEE_PERCENT,
   CARD_RATES,
-  MANAGED_PAYMENTS_PERCENT,
   bankChargeTotal,
   bankFeeAddedOn,
   chargeTotal,
@@ -163,9 +162,7 @@ function Pricing() {
               <p className="mt-3 text-sm text-muted-foreground">
                 The renter approves the payment in their own banking app. No card details,
                 no chargebacks, and the cheapest option on higher rents. A{" "}
-                {(MANAGED_PAYMENTS_PERCENT * 100).toFixed(1)}% managed payments fee also
-                applies.
-              </p>
+                no chargebacks, and the cheapest option on higher rents.
             </article>
 
             <article className="rounded-3xl border border-border bg-card p-7 shadow-[var(--shadow-calm)]">
